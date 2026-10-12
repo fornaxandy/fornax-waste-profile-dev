@@ -132,15 +132,19 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
       body: JSON.stringify({
-        model: MODEL, max_tokens: 4000,
-        tools: [toolSchema(lists)], tool_choice: { type: "tool", name: "fill_waste_profile" },
+        model: MODEL, max_tokens: 16000,
+        system: "You fill in waste profile questionnaires from documents. Always answer by calling the fill_waste_profile tool exactly once. Do not reply with plain text.",
+        // Newer models only accept "auto" here; the system prompt asks for the tool call.
+        tools: [toolSchema(lists)], tool_choice: { type: "auto" },
         messages: [{ role: "user", content }],
       }),
     });
     const out = await resp.json();
     if (!resp.ok) throw new Error(out?.error?.message || `Claude API error ${resp.status}`);
     usage = out.usage ?? usage;
-    result = out.content?.find((c: { type: string }) => c.type === "tool_use")?.input ?? {};
+    const call = out.content?.find((c: { type: string; name?: string }) => c.type === "tool_use" && c.name === "fill_waste_profile");
+    if (!call) throw new Error(`No answers returned (stop_reason: ${out.stop_reason})`);
+    result = call.input ?? {};
   } catch (e) {
     await admin.from("waste_profile_documents").update({ ai_status: "failed", ai_error: String(e).slice(0, 500) }).in("id", docs.map((d) => d.id));
     return json(req, { error: "The documents could not be read right now. Please try again later or fill in the form manually." }, 502);
