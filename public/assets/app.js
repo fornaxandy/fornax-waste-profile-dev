@@ -43,7 +43,21 @@ function showLogin() {
   els.loading.hidden = true; els.app.hidden = true; els.loginWrap.hidden = false; els.login.hidden = false;
   els.emailForm.hidden = false; els.codeForm.hidden = true; els.code.value = "";
   document.title = "Sign in";
+  const logo = document.getElementById("brand-logo");
+  if (logo) { logo.removeAttribute("src"); logo.hidden = true; }
   showError(""); renderCaptcha(); updateButtons();
+}
+
+// Logo is stored in the database and only readable after login, so the public site stays unbranded.
+async function loadLogo() {
+  try {
+    const { data } = await supabase.from("app_branding").select("mime_type, data_base64").eq("key", "logo").maybeSingle();
+    const img = document.getElementById("brand-logo");
+    if (!data || !img) return;
+    img.src = `data:${data.mime_type};base64,${data.data_base64}`;
+    img.hidden = false;
+    document.body.classList.add("has-logo");
+  } catch { /* no logo: plain title is shown */ }
 }
 
 els.email.addEventListener("input", updateButtons);
@@ -120,6 +134,7 @@ async function startApp(user) {
     state.customer = c;
   }
   els.loginWrap.hidden = true; els.app.hidden = false;
+  loadLogo();
   buildNav();
   if (!location.hash || location.hash === "#") location.hash = prof.role === "customer" ? "#/" : prof.role === "ops" ? "#/ops" : "#/s/dashboard";
   route();
