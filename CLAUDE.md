@@ -1,6 +1,6 @@
 # Project rules for Claude
 
-- **Fornax only.** This repository, its Supabase project and every connected account are for Fornax Ltd (waste incineration) work only. Never connect, use or reference any non-Fornax or private account or project.
+- **Fornax only.** This repository, its Supabase project and every connected account are for Fornax Ltd (waste incineration) work only. Never connect, use or reference any non-Fornax or private account or project. Temporary exception (Andy, 12 Oct): the Claude API key used for **testing** comes from a Console organisation named "Fornax" that was set up under Andy's private login by mistake. Test documents only, no real customer documents; it will be replaced by a Fornax-owned account when the credit runs out (only the `ANTHROPIC_API_KEY` secret changes).
 - The ERP system is spelled **Tegos** (voice input may produce "Tigo", "Tagos", "TGOS").
 - **The live site must not be recognisable as Fornax** at this prototype stage: no Fornax name, logo, colours or contact details anywhere under `public/` (pages, assets, titles, metadata). Repository-only files (this file, README, docs) may mention Fornax. Exception (Andy, 12 Oct): the Fornax logo is shown in the top bar **after login only**; it is stored in the database table `app_branding` (readable by signed-in users only), never as a file under `public/` or in git.
 - **Not discoverable:** keep `robots.txt` (Disallow all), the `noindex` meta tags and the `X-Robots-Tag` header in `public/_headers`. Before login, visitors see only the plain login page.
