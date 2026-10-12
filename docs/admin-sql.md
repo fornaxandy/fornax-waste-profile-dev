@@ -18,15 +18,7 @@ from auth.users where email = 'first.last@fornax.co.uk'
 on conflict (user_id) do update set role = excluded.role, full_name = excluded.full_name, is_active = true;
 ```
 
-Current staff (agreed 12 Oct 2026):
-
-| Name | Email | Role |
-|---|---|---|
-| Andy Przybysz | andy.przybysz@fornax.co.uk | admin (done) |
-| Amie Stringer | amie.stringer@fornax.co.uk | sales |
-| Charles Robinson | charles.robinson@fornax.co.uk | sales |
-| David Mills | david.mills@fornax.co.uk | chemist |
-| David Castor | david.castor@fornax.co.uk | ops |
+The list of staff and their roles is kept in the project plan (not in this public repository).
 
 ## 2. Change someone's role
 
