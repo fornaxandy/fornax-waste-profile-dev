@@ -1,0 +1,7 @@
+/*
+  X-Robots-Tag: noindex, nofollow, noarchive, nosnippet, noimageindex
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://challenges.cloudflare.com; connect-src 'self' https://wihbibwtuyhgqfbktsok.supabase.co wss://wihbibwtuyhgqfbktsok.supabase.co https://cdn.jsdelivr.net; frame-src https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'self'; frame-ancestors 'none'

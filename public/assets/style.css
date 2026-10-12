@@ -1,0 +1,90 @@
+:root {
+  --bg: #f4f4f5;
+  --card: #ffffff;
+  --text: #1f2328;
+  --muted: #5b616b;
+  --border: #d4d6db;
+  --accent: #3b4250;
+  --error: #b42318;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181b;
+    --card: #212327;
+    --text: #e8e9ec;
+    --muted: #a3a8b2;
+    --border: #3a3d44;
+    --accent: #c9ccd3;
+    --error: #ff8a80;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  min-height: 100vh;
+}
+.wrap {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+}
+.card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 28px 24px;
+}
+h1 { font-size: 1.4rem; margin: 0 0 16px; font-weight: 600; }
+.notice {
+  font-size: 0.875rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0 0 20px;
+}
+.info { font-size: 0.9rem; color: var(--muted); }
+label { display: block; font-size: 0.9rem; font-weight: 600; margin: 0 0 6px; }
+input {
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 0 0 16px;
+}
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+#code { letter-spacing: 0.4em; font-size: 1.2rem; text-align: center; }
+.captcha { min-height: 65px; margin: 0 0 16px; }
+button {
+  font: inherit;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--card);
+  cursor: pointer;
+  font-weight: 600;
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.link {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  margin-top: 8px;
+  font-weight: 400;
+  text-decoration: underline;
+}
+.error { color: var(--error); font-size: 0.9rem; margin: 16px 0 0; }
+.loading { color: var(--muted); }
+[hidden] { display: none !important; }

@@ -1,0 +1,12 @@
+# Never commit data, secrets or reference spreadsheets
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+*.env
+.env*
+*.pem
+*.key
+node_modules/
+.DS_Store
+.wrangler/
