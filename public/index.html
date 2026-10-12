@@ -13,44 +13,48 @@
   <script type="module" src="/assets/app.js"></script>
 </head>
 <body>
-  <main class="wrap">
+  <main class="wrap" id="login-wrap">
     <section class="card" id="login-view" hidden>
       <h1>Sign in</h1>
-
       <p class="notice" role="note">
         This is a prototype, not a live service. Do not use it for business.
         If you reached this page by mistake, please close it.
       </p>
-
       <form id="email-form" novalidate>
         <label for="email">Email address</label>
         <input id="email" name="email" type="email" autocomplete="email" required>
         <div id="captcha" class="captcha"></div>
-        <button type="submit" id="send-btn" disabled>Send code</button>
+        <button type="submit" id="send-btn" class="btn btn-primary btn-block" disabled>Send code</button>
       </form>
-
       <form id="code-form" novalidate hidden>
-        <p class="info" id="sent-msg">
+        <p class="info">
           If your email address is registered, you will receive a code. Enter it below.
           If you did not receive a code, contact the person who invited you.
         </p>
         <label for="code">6-digit code</label>
         <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required>
-        <button type="submit" id="verify-btn" disabled>Sign in</button>
+        <button type="submit" id="verify-btn" class="btn btn-primary btn-block" disabled>Sign in</button>
         <button type="button" class="link" id="restart-btn">Use a different email</button>
       </form>
-
       <p class="error" id="error" role="alert" hidden></p>
     </section>
-
-    <section class="card" id="app-view" hidden>
-      <h1>Signed in</h1>
-      <p>You are signed in as <strong id="user-email"></strong>.</p>
-      <p class="info">The portal is being built. Further sections will appear here.</p>
-      <button type="button" id="signout-btn">Sign out</button>
-    </section>
-
     <p class="loading" id="loading">Loading…</p>
   </main>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="#/" class="brand">Waste Profile Portal <span class="proto">Prototype</span></a>
+        <button type="button" class="menu-btn" id="menu-btn" aria-expanded="false" aria-controls="nav">Menu</button>
+        <nav id="nav" aria-label="Main"></nav>
+        <div class="userbox">
+          <span id="user-name"></span>
+          <button type="button" class="btn btn-small" id="signout-btn">Sign out</button>
+        </div>
+      </div>
+    </header>
+    <main id="main" class="content" tabindex="-1"></main>
+  </div>
+  <div id="toasts" aria-live="polite"></div>
 </body>
 </html>
