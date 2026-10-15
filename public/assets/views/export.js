@@ -26,20 +26,27 @@ const n = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 const d = (v) => (v ? new Date(v) : null);
 
 // Tegos needs the target document on every row (replaces decision D13, 15 Oct 2026):
-//   DocumentType  Contract / Quote / Order  (only Quote for now)
-//   DocumentNo    WMQ + 7 digits, typed in by the exporting user
+//   DocumentType  Contract / Quote / Order, chosen by the exporting user
+//   DocumentNo    prefix for the type + number padded to 7 digits: Quote 190 -> WMQ0000190
 //   DocumentLineNo 10000, 20000, 30000 … one per exported profile
 //   WasteEntryLineNo and LineNo always 10000
-const DOC_TYPES = ["Quote"];               // later: "Contract", "Order"
-const DOC_NO_RE = /^WMQ\d{7}$/;
+const DOC_TYPES = [
+  { type: "Quote", prefix: "WMQ" },
+  { type: "Contract", prefix: "WMC" },
+  { type: "Order", prefix: "WMO" },
+];
+const DOC_NO_RE = /^WM[QCO]\d{7}$/;
 
-// Accepts "WMQ0000118", "wmq 0000118" or just "118" and returns "WMQ0000118"; null if it cannot be made valid.
-export function normaliseDocNo(raw) {
-  const s = String(raw || "").toUpperCase().replace(/\s+/g, "");
-  const digits = s.startsWith("WMQ") ? s.slice(3) : s;
-  if (!/^\d{1,7}$/.test(digits)) return null;
-  const out = "WMQ" + digits.padStart(7, "0");
-  return DOC_NO_RE.test(out) ? out : null;
+// "190" -> "0000190". Only digits are accepted (no letters); leading zeros are allowed but not needed.
+export function docNumberDigits(raw) {
+  const s = String(raw ?? "").trim();
+  if (!/^\d{1,7}$/.test(s) || Number(s) === 0) return null;
+  return s.padStart(7, "0");
+}
+export function buildDocNo(type, raw) {
+  const t = DOC_TYPES.find((d) => d.type === type);
+  const digits = docNumberDigits(raw);
+  return t && digits ? t.prefix + digits : null;
 }
 
 function askTegosDocument(count) {
@@ -48,27 +55,40 @@ function askTegosDocument(count) {
     body: `<p class="muted">Tegos imports the ${count === 1 ? "waste profile" : `${count} waste profiles`} into an existing document.
         Delete any existing waste profile lines on that document in Tegos before importing.</p>
       <div class="field"><label for="ex_doc_type">Document type</label>
-        <select id="ex_doc_type">${DOC_TYPES.map((t) => `<option>${esc(t)}</option>`).join("")}</select></div>
-      <div class="field"><label for="ex_doc_no">Quote number *</label>
-        <input id="ex_doc_no" type="text" maxlength="12" placeholder="WMQ0000118" autocomplete="off">
-        <p class="hint">Format WMQ followed by 7 digits, for example WMQ0000118.</p>
+        <select id="ex_doc_type">${DOC_TYPES.map((d) => `<option value="${d.type}">${esc(d.type)} (${d.prefix})</option>`).join("")}</select></div>
+      <div class="field"><label for="ex_doc_no">Document number *</label>
+        <input id="ex_doc_no" type="text" inputmode="numeric" maxlength="7" placeholder="e.g. 190" autocomplete="off">
+        <p class="hint">Type only the last digits, without the letters or the zeros at the start. For example, for WMQ0000190 type 190.</p>
+        <p class="hint" id="ex_doc_preview"></p>
         <p class="hint" id="ex_doc_err" role="alert" style="color:var(--danger)" hidden></p></div>`,
     buttons: [{ label: "Cancel", value: null }, {
       label: "Export to Excel", kind: "primary",
       validate: (w) => {
         const el = w.querySelector("#ex_doc_no"), err = w.querySelector("#ex_doc_err");
-        const v = normaliseDocNo(el.value);
-        if (v) { el.value = v; return true; }
+        if (buildDocNo(w.querySelector("#ex_doc_type").value, el.value)) return true;
         el.classList.add("invalid"); el.focus();
-        err.textContent = "Enter a quote number in the format WMQ0000118 (WMQ and 7 digits).";
+        err.textContent = "Enter numbers only (1 to 7 digits), for example 190.";
         err.hidden = false;
         return false;
       },
-      value: (w) => ({ docType: w.querySelector("#ex_doc_type").value, docNo: normaliseDocNo(w.querySelector("#ex_doc_no").value) }),
+      value: (w) => {
+        const docType = w.querySelector("#ex_doc_type").value;
+        return { docType, docNo: buildDocNo(docType, w.querySelector("#ex_doc_no").value) };
+      },
     }],
-    onOpen: (w) => w.querySelector("#ex_doc_no").addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); w.querySelector(".btn-primary").click(); }
-    }),
+    onOpen: (w) => {
+      const input = w.querySelector("#ex_doc_no"), type = w.querySelector("#ex_doc_type");
+      const preview = () => {
+        const no = buildDocNo(type.value, input.value);
+        w.querySelector("#ex_doc_preview").textContent = no ? `Will be exported as ${type.value} ${no}.` : "";
+        if (no) { input.classList.remove("invalid"); w.querySelector("#ex_doc_err").hidden = true; }
+      };
+      input.addEventListener("input", preview);
+      type.addEventListener("change", preview);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); w.querySelector(".btn-primary").click(); }
+      });
+    },
   });
 }
 
@@ -147,7 +167,7 @@ export async function view() {
 }
 
 export async function exportProfiles(ids, custMap, doc) {
-  if (!doc || !DOC_TYPES.includes(doc.docType) || !DOC_NO_RE.test(doc.docNo || "")) throw new Error("A valid Tegos document type and number are required.");
+  if (!doc || !DOC_TYPES.some((d) => d.type === doc.docType) || !DOC_NO_RE.test(doc.docNo || "")) throw new Error("A valid Tegos document type and number are required.");
   const [profiles, internals] = await Promise.all([
     run(supabase.from("waste_profiles").select("*").in("id", ids)),
     run(supabase.from("waste_profile_internal").select("*").in("waste_profile_id", ids)),
