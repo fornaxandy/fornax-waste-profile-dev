@@ -134,7 +134,7 @@ function render(ctx, localNote = "") {
   wireForm(ctx, m);
   renderActions(ctx);
   loadMessages(ctx);
-  documentsPanel($("#docs-panel"), ctx, (values, filledCols) => applyAi(ctx, values, filledCols));
+  documentsPanel($("#docs-panel"), ctx, (values, filledCols, mode) => applyAi(ctx, values, filledCols, mode));
 }
 
 function lockMessage(row) {
@@ -340,14 +340,32 @@ function markDirty(ctx) {
   renderActions(ctx);
 }
 
-function applyAi(ctx, values, cols) {
+// mode: "all" fills every answer found; "gaps" only fills fields still at their default;
+// "replace" clears the form first (the document describes a different waste stream).
+function applyAi(ctx, values, cols, mode = "all") {
   if (!ctx.editable) return;
-  for (const [k, v] of Object.entries(values)) if (EDITABLE_COLS.includes(k) || k === "un_no") ctx.current[k] = v;
+  const defaults = normalise(defaultData());
+  if (mode === "replace") { ctx.current = { ...defaults }; ctx.aiFilled.clear(); }
+  const isGap = (k) => JSON.stringify(normalise({ [k]: ctx.current[k] })[k]) === JSON.stringify(defaults[k] ?? null);
+  const used = [];
+  for (const [k, v] of Object.entries(values)) {
+    if (!(EDITABLE_COLS.includes(k) || k === "un_no")) continue;
+    if (mode === "gaps" && !isGap(k)) continue;
+    if (mode === "gaps" && k === "adr_code" && !used.includes("un_no") && ctx.current.un_no) continue;
+    ctx.current[k] = v;
+    used.push(k);
+  }
   ctx.current = normalise(ctx.current);
-  for (const c of cols) ctx.aiFilled.add(c);
+  for (const c of cols) if (used.includes(c)) ctx.aiFilled.add(c);
   markDirty(ctx);
   localCopy.set(ctx.id, { data: ctx.current, cleared: ctx.cleared, aiFilled: [...ctx.aiFilled] });
-  render(ctx, "Fields filled from your documents are highlighted. Please check them, then save as draft.");
+  const msg = mode === "gaps"
+    ? (used.length ? `${used.length} empty field${used.length === 1 ? "" : "s"} filled from your documents. Existing answers were kept. Please check the highlighted fields, then save as draft.`
+      : "No empty fields could be filled from the documents. Existing answers were kept.")
+    : mode === "replace"
+      ? "The form was cleared and filled from the new document. Please check the highlighted fields, then save as draft."
+      : "Fields filled from your documents are highlighted. Please check them, then save as draft.";
+  render(ctx, msg);
 }
 
 // ---------------------------------------------------------------- actions

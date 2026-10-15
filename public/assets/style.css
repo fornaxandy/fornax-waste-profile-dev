@@ -245,3 +245,13 @@ button.link { background: none; border: none; color: var(--muted); text-decorati
   .topbar, .sticky-actions, .maq-side, #toasts { display: none !important; }
   .maq-layout { display: block; }
 }
+
+/* Documents: remove link, removed-documents audit list, different-waste choices (15 Oct 2026) */
+.doc-list li { flex-wrap: wrap; align-items: baseline; }
+button.link.link-danger { width: auto; margin: 0; padding: 0; color: var(--danger); }
+.doc-removed { margin-top: 12px; font-size: 0.9rem; }
+.doc-removed summary { cursor: pointer; color: var(--muted); }
+.choices { display: grid; gap: 8px; margin: 8px 0; }
+.choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-weight: 400; cursor: pointer; }
+.choice input { margin-top: 4px; }
+.choice:has(input:checked) { border-color: var(--accent); background: var(--ai-bg); }
