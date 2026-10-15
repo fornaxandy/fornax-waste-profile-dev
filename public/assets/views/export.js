@@ -1,6 +1,6 @@
 // Export accepted waste profiles to an Excel file with a single "BC Import" sheet for upload to Tegos.
 // Column order and names match the BC Import tab of the Tegos Waste Profile Export workbook, plus "Price" at the end.
-import { supabase, esc, run, toast, page, loading, setTitle, fmtDate, fmtNum, empty, downloadBlob, fetchAll } from "../lib.js";
+import { supabase, esc, run, toast, page, loading, setTitle, fmtDate, fmtNum, empty, downloadBlob, fetchAll, modal } from "../lib.js";
 
 const HEADERS = ["DocumentType", "DocumentNo", "DocumentLineNo", "WasteEntryLineNo", "LineNo", "ServiceNo", "ServiceDescription", "MaterialNo",
   "WasteDescription", "EWCCode", "EWCAR", "UNNo", "ProperShippingName", "ADRCode", "ADRClass1", "ADRClass2", "ADRClass3", "ADRClass4",
@@ -25,11 +25,57 @@ const yesNo = (b) => (b ? "Yes" : "No");
 const n = (v) => (v === null || v === undefined || v === "" ? 0 : Number(v));
 const d = (v) => (v ? new Date(v) : null);
 
-function toRow(w, i, idx, cust, site, submitter) {
-  const lineNo = (idx + 1) * 10000;   // new lines numbered +10000 (BC Import convention)
+// Tegos needs the target document on every row (replaces decision D13, 15 Oct 2026):
+//   DocumentType  Contract / Quote / Order  (only Quote for now)
+//   DocumentNo    WMQ + 7 digits, typed in by the exporting user
+//   DocumentLineNo 10000, 20000, 30000 … one per exported profile
+//   WasteEntryLineNo and LineNo always 10000
+const DOC_TYPES = ["Quote"];               // later: "Contract", "Order"
+const DOC_NO_RE = /^WMQ\d{7}$/;
+
+// Accepts "WMQ0000118", "wmq 0000118" or just "118" and returns "WMQ0000118"; null if it cannot be made valid.
+export function normaliseDocNo(raw) {
+  const s = String(raw || "").toUpperCase().replace(/\s+/g, "");
+  const digits = s.startsWith("WMQ") ? s.slice(3) : s;
+  if (!/^\d{1,7}$/.test(digits)) return null;
+  const out = "WMQ" + digits.padStart(7, "0");
+  return DOC_NO_RE.test(out) ? out : null;
+}
+
+function askTegosDocument(count) {
+  return modal({
+    title: "Tegos document",
+    body: `<p class="muted">Tegos imports the ${count === 1 ? "waste profile" : `${count} waste profiles`} into an existing document.
+        Delete any existing waste profile lines on that document in Tegos before importing.</p>
+      <div class="field"><label for="ex_doc_type">Document type</label>
+        <select id="ex_doc_type">${DOC_TYPES.map((t) => `<option>${esc(t)}</option>`).join("")}</select></div>
+      <div class="field"><label for="ex_doc_no">Quote number *</label>
+        <input id="ex_doc_no" type="text" maxlength="12" placeholder="WMQ0000118" autocomplete="off">
+        <p class="hint">Format WMQ followed by 7 digits, for example WMQ0000118.</p>
+        <p class="hint" id="ex_doc_err" role="alert" style="color:var(--danger)" hidden></p></div>`,
+    buttons: [{ label: "Cancel", value: null }, {
+      label: "Export to Excel", kind: "primary",
+      validate: (w) => {
+        const el = w.querySelector("#ex_doc_no"), err = w.querySelector("#ex_doc_err");
+        const v = normaliseDocNo(el.value);
+        if (v) { el.value = v; return true; }
+        el.classList.add("invalid"); el.focus();
+        err.textContent = "Enter a quote number in the format WMQ0000118 (WMQ and 7 digits).";
+        err.hidden = false;
+        return false;
+      },
+      value: (w) => ({ docType: w.querySelector("#ex_doc_type").value, docNo: normaliseDocNo(w.querySelector("#ex_doc_no").value) }),
+    }],
+    onOpen: (w) => w.querySelector("#ex_doc_no").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); w.querySelector(".btn-primary").click(); }
+    }),
+  });
+}
+
+function toRow(w, i, idx, cust, site, submitter, doc) {
   const v = {
-    DocumentType: "", DocumentNo: "",                       // left blank: Tegos fills them (decision D13)
-    DocumentLineNo: 0, WasteEntryLineNo: lineNo, LineNo: lineNo,
+    DocumentType: doc.docType, DocumentNo: doc.docNo,
+    DocumentLineNo: (idx + 1) * 10000, WasteEntryLineNo: 10000, LineNo: 10000,
     ServiceNo: w.service_no, ServiceDescription: w.service_description, MaterialNo: w.material_no,
     WasteDescription: w.waste_description || "", EWCCode: w.ewc_code || "", EWCAR: i.ewc_ar || "",
     UNNo: w.un_no || "", ProperShippingName: w.proper_shipping_name || "", ADRCode: w.adr_code || "",
@@ -91,14 +137,17 @@ export async function view() {
   m.querySelectorAll(".sel").forEach((c) => c.addEventListener("change", update));
   m.querySelector("#do-export").addEventListener("click", async () => {
     const ids = [...m.querySelectorAll(".sel:checked")].map((c) => c.value);
+    const doc = await askTegosDocument(ids.length);
+    if (!doc) return;
     const btn = m.querySelector("#do-export");
     btn.disabled = true; btn.textContent = "Preparing…";
-    try { await exportProfiles(ids, custMap); }
+    try { await exportProfiles(ids, custMap, doc); }
     finally { btn.disabled = false; btn.textContent = "Export to Excel"; }
   });
 }
 
-export async function exportProfiles(ids, custMap) {
+export async function exportProfiles(ids, custMap, doc) {
+  if (!doc || !DOC_TYPES.includes(doc.docType) || !DOC_NO_RE.test(doc.docNo || "")) throw new Error("A valid Tegos document type and number are required.");
   const [profiles, internals] = await Promise.all([
     run(supabase.from("waste_profiles").select("*").in("id", ids)),
     run(supabase.from("waste_profile_internal").select("*").in("waste_profile_id", ids)),
@@ -113,7 +162,7 @@ export async function exportProfiles(ids, custMap) {
   const sm = new Map(sites.map((x) => [x.id, x]));
   const um = new Map(users.map((x) => [x.user_id, x]));
   profiles.sort((a, b) => a.reference.localeCompare(b.reference));
-  const data = [HEADERS, ...profiles.map((w, idx) => toRow(w, im.get(w.id) || {}, idx, custMap.get(w.customer_id), sm.get(w.collection_site_id), um.get(w.submitted_by)))];
+  const data = [HEADERS, ...profiles.map((w, idx) => toRow(w, im.get(w.id) || {}, idx, custMap.get(w.customer_id), sm.get(w.collection_site_id), um.get(w.submitted_by), doc))];
 
   const XLSX = await import("https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm");
   const ws = XLSX.utils.aoa_to_sheet(data, { cellDates: true, dateNF: "dd/mm/yyyy" });
@@ -122,7 +171,7 @@ export async function exportProfiles(ids, custMap) {
   XLSX.utils.book_append_sheet(wb, ws, "BC Import");
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array", cellDates: true });
   const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "");
-  downloadBlob(new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `BC_Import_${stamp}.xlsx`);
-  toast(`Exported ${profiles.length} waste profile${profiles.length === 1 ? "" : "s"}.`);
+  downloadBlob(new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `BC_Import_${doc.docNo}_${stamp}.xlsx`);
+  toast(`Exported ${profiles.length} waste profile${profiles.length === 1 ? "" : "s"} for ${doc.docType} ${doc.docNo}.`);
 }
 export { fetchAll };
